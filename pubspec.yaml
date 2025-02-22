@@ -37,12 +37,15 @@ dependencies:
   shared_preferences: ^2.2.2
   table_calendar: ^3.0.9
   google_fonts: ^4.0.3
+  video_player: #
  # or latest version
 
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  analog_clock: ^0.1.1
+  flutter_native_splash: ^2.4.5
 
 dev_dependencies:
   flutter_test:
@@ -66,6 +69,9 @@ flutter_icons:
   adaptive_icon_background: "#000000" # Optional (for Android)
 # The following section is specific to Flutter packages.
 flutter:
+  assets: 
+    - assets/appbar.png
+    - assets/splash.mp4
   
 
   # The following line ensures that the Material Icons font is
