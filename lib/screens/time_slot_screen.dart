@@ -23,14 +23,13 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
 
   Future<void> _loadTimeSlots() async {
     final prefs = await SharedPreferences.getInstance();
-    String? slotsJson = prefs.getString('timeSlots');
-    
-    if (slotsJson != null) {
-      List<dynamic> decodedList = jsonDecode(slotsJson);
+    String? timeSlotsJson = prefs.getString('timeSlots');
+
+    if (timeSlotsJson != null) {
+      List<dynamic> decodedList = jsonDecode(timeSlotsJson);
       setState(() {
-        _timeSlots = decodedList
-            .map<Map<String, dynamic>>((item) => Map<String, dynamic>.from(item))
-            .toList();
+        _timeSlots =
+            decodedList.map((item) => item as Map<String, dynamic>).toList();
       });
     }
   }
@@ -52,7 +51,7 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
         } else {
           _timeSlots.add({
             'start': pickedTime.format(context),
-            'end': '',
+            'end': 'Set End Time', // Default value to avoid null
           });
         }
       });
@@ -103,7 +102,7 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
                         return Card(
                           child: ListTile(
                             title: Text(
-                              "${_timeSlots[index]['start']} - ${_timeSlots[index]['end'].isEmpty ? 'Set End Time' : _timeSlots[index]['end']}"
+                              "${_timeSlots[index]['start']} - ${_timeSlots[index]['end']}",
                             ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -122,6 +121,38 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
                         );
                       },
                     ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (_timeSlots.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("No time slots added!")),
+                  );
+                  return;
+                }
+
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text("Saved Time Slots"),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _timeSlots
+                          .map((slot) => Text(
+                                "${slot['start']} - ${slot['end']}",
+                              ))
+                          .toList(),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text("OK"),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              child: Text("See Time Slots"),
             ),
           ],
         ),

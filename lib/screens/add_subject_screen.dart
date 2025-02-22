@@ -77,7 +77,7 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
   Future<void> _generateSchedule() async {
     if (_subjects.isEmpty || _timeSlots.isEmpty) return;
 
-    int totalWeight = _subjects.fold(0, (sum, subject) => sum + (subject['weight'] as int));
+    _subjects.sort((a, b) => b['weight'].compareTo(a['weight']));
     _schedule.clear();
 
     for (int i = 0; i < _timeSlots.length; i++) {
@@ -117,6 +117,33 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
     );
   }
 
+  void _showTimeSlots() {
+  if (_timeSlots.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("No time slots added!")),
+    );
+    return;
+  }
+
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text("Saved Time Slots"),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: _timeSlots.map((slot) => Text(slot)).toList(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text("OK"),
+        ),
+      ],
+    ),
+  );
+}
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -155,6 +182,11 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
             ElevatedButton(
               onPressed: _showGeneratedSchedule,
               child: Text("Show Generated Schedule"),
+            ),
+            SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _showTimeSlots,
+              child: Text("See Time Slots"),
             ),
             Expanded(
               child: ListView.builder(
