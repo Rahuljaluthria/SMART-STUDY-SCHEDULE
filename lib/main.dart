@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'screens/add_subject_screen.dart';
+import 'screens/time_slot_screen.dart';
 
 
 import 'dart:async';
@@ -164,6 +165,15 @@ class _StartPageState extends State<StartPage> {
               ),
             ),
             SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+              Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => TimeSlotScreen()),
+              );
+              },
+              child: Text("Manage Study Time Slots"),
+            ),
             ElevatedButton(
               onPressed: () async {
                 await Navigator.push(

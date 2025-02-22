@@ -9,10 +9,10 @@ class AddSubjectScreen extends StatefulWidget {
 
 class _AddSubjectScreenState extends State<AddSubjectScreen> {
   final TextEditingController _subjectController = TextEditingController();
-  final TextEditingController _hoursController = TextEditingController();
-  String _selectedDifficulty = "Easy"; // Default difficulty
+  String _selectedDifficulty = "Easy";
   List<Map<String, dynamic>> _subjects = [];
-  String? _generatedSchedule;
+  List<String> _timeSlots = [];
+  Map<String, String> _schedule = {};
 
   final Map<String, int> _difficultyWeights = {
     "Easy": 1,
@@ -24,7 +24,7 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
   void initState() {
     super.initState();
     _loadSubjects();
-    _loadGeneratedSchedule();
+    _loadTimeSlots();
   }
 
   Future<void> _saveSubjects() async {
@@ -42,12 +42,12 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
     }
   }
 
-  Future<void> _loadGeneratedSchedule() async {
+  Future<void> _loadTimeSlots() async {
     final prefs = await SharedPreferences.getInstance();
-    String? savedSchedule = prefs.getString('lastSchedule');
-    if (savedSchedule != null) {
+    String? slotsJson = prefs.getString('timeSlots');
+    if (slotsJson != null) {
       setState(() {
-        _generatedSchedule = savedSchedule;
+        _timeSlots = List<String>.from(jsonDecode(slotsJson));
       });
     }
   }
@@ -75,31 +75,24 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
   }
 
   Future<void> _generateSchedule() async {
-    if (_subjects.isEmpty || _hoursController.text.isEmpty) return;
+    if (_subjects.isEmpty || _timeSlots.isEmpty) return;
 
-    int totalHours = int.tryParse(_hoursController.text) ?? 0;
-    if (totalHours <= 0) return;
-
-    // Calculate total weight sum
     int totalWeight = _subjects.fold(0, (sum, subject) => sum + (subject['weight'] as int));
+    _schedule.clear();
 
-    // Distribute hours based on difficulty weight
-    StringBuffer schedule = StringBuffer();
-    for (var subject in _subjects) {
-      int allocatedHours = ((subject['weight'] / totalWeight) * totalHours).floor();
-      schedule.writeln("${subject['name']} - ${allocatedHours} hours (${subject['difficulty']})");
+    for (int i = 0; i < _timeSlots.length; i++) {
+      if (i >= _subjects.length) break;
+      _schedule[_timeSlots[i]] = "${_subjects[i]['name']} (${_subjects[i]['difficulty']})";
     }
 
-    setState(() {
-      _generatedSchedule = schedule.toString();
-    });
+    setState(() {});
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('lastSchedule', _generatedSchedule!);
+    await prefs.setString('schedule', jsonEncode(_schedule));
   }
 
   void _showGeneratedSchedule() {
-    if (_generatedSchedule == null) {
+    if (_schedule.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("No schedule generated yet!")),
       );
@@ -110,7 +103,10 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text("Generated Schedule"),
-        content: Text(_generatedSchedule!),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _schedule.entries.map((entry) => Text("${entry.key} - ${entry.value}" )).toList(),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -151,11 +147,6 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
               onPressed: _addSubject,
               child: Text("Add Subject"),
             ),
-            TextField(
-              controller: _hoursController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: "Total Hours Available"),
-            ),
             ElevatedButton(
               onPressed: _generateSchedule,
               child: Text("Generate Schedule"),
@@ -165,13 +156,6 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
               onPressed: _showGeneratedSchedule,
               child: Text("Show Generated Schedule"),
             ),
-            SizedBox(height: 20),
-            _generatedSchedule != null
-                ? Text(
-                    "Last Generated Schedule:\n$_generatedSchedule",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  )
-                : Container(),
             Expanded(
               child: ListView.builder(
                 itemCount: _subjects.length,
