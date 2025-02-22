@@ -4,12 +4,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'screens/add_subject_screen.dart';
 import 'screens/time_slot_screen.dart';
+import 'splash_screen.dart';
+
 
 
 import 'dart:async';
 
 void main() {
-  runApp(StudyScheduleApp());
+  runApp(MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: SplashScreen(),
+  ));
 }
 
 class StudyScheduleApp extends StatefulWidget {
@@ -18,7 +23,7 @@ class StudyScheduleApp extends StatefulWidget {
 }
 
 class _StudyScheduleAppState extends State<StudyScheduleApp> {
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.dark; // Default to dark mode
 
   @override
   void initState() {
@@ -28,17 +33,9 @@ class _StudyScheduleAppState extends State<StudyScheduleApp> {
 
   void _loadTheme() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool isDarkMode = prefs.getBool('darkMode') ?? false;
+    bool isDarkMode = prefs.getBool('darkMode') ?? true; // Default dark mode
     setState(() {
       _themeMode = isDarkMode ? ThemeMode.dark : ThemeMode.light;
-    });
-  }
-
-  void _toggleTheme(bool isDark) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('darkMode', isDark);
-    setState(() {
-      _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
     });
   }
 
@@ -46,18 +43,20 @@ class _StudyScheduleAppState extends State<StudyScheduleApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.light(),
-      darkTheme: ThemeData.dark(),
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: Colors.black,
+        textTheme: TextTheme(
+          bodyMedium: TextStyle(color: Colors.white),
+         
+        ),
+      ),
       themeMode: _themeMode,
-      home: StartPage(toggleTheme: _toggleTheme),
+      home: StartPage(),
     );
   }
 }
 
 class StartPage extends StatefulWidget {
-  final Function(bool) toggleTheme;
-  StartPage({required this.toggleTheme});
-
   @override
   _StartPageState createState() => _StartPageState();
 }
@@ -106,26 +105,32 @@ class _StartPageState extends State<StartPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Planify'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => SettingsPage(toggleTheme: widget.toggleTheme)),
-              );
-            },
-          ),
-        ],
-      ),
+  title: Image.asset(
+    'assets/appbar.png',
+    height: 40,
+  ),
+  centerTitle: true,
+  backgroundColor: Colors.black,
+  actions: [
+    IconButton(
+      icon: Icon(Icons.settings, color: Colors.white), // Ensure it's visible in dark mode
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => SettingsPage()),
+        );
+      },
+    ),
+  ],
+),
+
       body: Padding(
         padding: EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Card(
-              color: Colors.blue.shade50,
+              color: Colors.grey.shade900,
               elevation: 4,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -134,13 +139,16 @@ class _StartPageState extends State<StartPage> {
                 padding: EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    Text(_currentTime, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    Text(_currentTime, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
                     SizedBox(height: 16),
                     TableCalendar(
                       firstDay: DateTime.utc(2020, 1, 1),
                       lastDay: DateTime.utc(2030, 12, 31),
                       focusedDay: DateTime.now(),
                       calendarFormat: CalendarFormat.week,
+                      headerStyle: HeaderStyle(titleTextStyle: TextStyle(color: Colors.white)),
+                      daysOfWeekStyle: DaysOfWeekStyle(weekdayStyle: TextStyle(color: Colors.white)),
+                      calendarStyle: CalendarStyle(defaultTextStyle: TextStyle(color: Colors.white)),
                     ),
                   ],
                 ),
@@ -148,7 +156,7 @@ class _StartPageState extends State<StartPage> {
             ),
             SizedBox(height: 20),
             Card(
-              color: Colors.green.shade50,
+              color: Colors.green.shade900,
               elevation: 4,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -157,9 +165,9 @@ class _StartPageState extends State<StartPage> {
                 padding: EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    Text("Generated Schedule", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text("Generated Schedule", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
                     SizedBox(height: 10),
-                    Text(_lastGeneratedSchedule ?? "No schedule generated yet", textAlign: TextAlign.center),
+                    Text(_lastGeneratedSchedule ?? "No schedule generated yet", textAlign: TextAlign.center, style: TextStyle(color: Colors.white)),
                   ],
                 ),
               ),
@@ -167,10 +175,10 @@ class _StartPageState extends State<StartPage> {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-              Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => TimeSlotScreen()),
-              );
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => TimeSlotScreen()),
+                );
               },
               child: Text("Manage Study Time Slots"),
             ),
@@ -191,35 +199,10 @@ class _StartPageState extends State<StartPage> {
   }
 }
 
-class SettingsPage extends StatefulWidget {
-  final Function(bool) toggleTheme;
-  SettingsPage({required this.toggleTheme});
-
-  @override
-  _SettingsPageState createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends State<SettingsPage> {
-  bool _isDarkMode = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTheme();
-  }
-
-  void _loadTheme() async {
+class SettingsPage extends StatelessWidget {
+  void _clearCache() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _isDarkMode = prefs.getBool('darkMode') ?? false;
-    });
-  }
-
-  void _toggleTheme(bool value) {
-    widget.toggleTheme(value);
-    setState(() {
-      _isDarkMode = value;
-    });
+    await prefs.clear();
   }
 
   @override
@@ -228,12 +211,16 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(title: Text("Settings")),
       body: Padding(
         padding: EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text("Dark Mode"),
-            Switch(value: _isDarkMode, onChanged: _toggleTheme),
-          ],
+        child: Center(
+          child: ElevatedButton(
+            onPressed: () {
+              _clearCache();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Cache cleared successfully")),
+              );
+            },
+            child: Text("Clear Cache"),
+          ),
         ),
       ),
     );
