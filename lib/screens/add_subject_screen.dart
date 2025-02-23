@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+
 
 class AddSubjectScreen extends StatefulWidget {
   @override
@@ -11,7 +14,7 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
   final TextEditingController _subjectController = TextEditingController();
   String _selectedDifficulty = "Easy";
   List<Map<String, dynamic>> _subjects = [];
-  List<String> _timeSlots = [];
+  List<Map<String, dynamic>> _timeSlots = [];
   Map<String, String> _schedule = {};
 
   final Map<String, int> _difficultyWeights = {
@@ -43,22 +46,23 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
   }
 
   Future<void> _loadTimeSlots() async {
-  final prefs = await SharedPreferences.getInstance();
-  String? slotsJson = prefs.getString('timeSlots');
+    final prefs = await SharedPreferences.getInstance();
+    String? slotsJson = prefs.getString('timeSlots');
 
-  if (slotsJson != null) {
-    List<dynamic> decodedList = jsonDecode(slotsJson);
-    
-    setState(() {
-  _timeSlots = decodedList.map<String>((item) {
-    return '${item['start']} - ${item['end']} (${item['duration']} min)';
-  }).toList();
-});
+    if (slotsJson != null) {
+      List<dynamic> decodedList = jsonDecode(slotsJson);
 
+      setState(() {
+        _timeSlots = decodedList.map<Map<String, dynamic>>((item) {
+          return {
+            'start': item['start'],
+            'end': item['end'],
+            'duration': item['duration']
+          };
+        }).toList();
+      });
+    }
   }
-}
-
-
 
   void _addSubject() {
     if (_subjectController.text.isEmpty) return;
@@ -83,52 +87,63 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
   }
 
   Future<void> _generateSchedule() async {
-    if (_subjects.isEmpty || _timeSlots.isEmpty) return;
+  if (_subjects.isEmpty || _timeSlots.isEmpty) return;
 
-    _subjects.sort((a, b) => b['weight'].compareTo(a['weight']));
-    _schedule.clear();
+  final String apiUrl = "https://llama8b.gaia.domains/v1"; // Replace with actual API URL
+  final String apiKey = "gaia-MjY5ODYyNmUtMDkwMC00NWNiLWIwOGMtOWI4YjI0ZjJjOTAw-cguhPB181yZYWb-3"; // Replace with your API key
 
-    for (int i = 0; i < _timeSlots.length; i++) {
-      if (i >= _subjects.length) break;
-      _schedule[_timeSlots[i]] = "${_subjects[i]['name']} (${_subjects[i]['difficulty']})";
+  List<Map<String, dynamic>> subjectsList = _subjects.map((subject) {
+    return {
+      'name': subject['name'],
+      'difficulty': subject['difficulty'],
+      'weight': subject['weight'],
+    };
+  }).toList();
+
+  List<Map<String, dynamic>> timeSlotsList = _timeSlots.map((slot) {
+    return {
+      'start': slot['start'],
+      'end': slot['end'],
+      'duration': slot['duration'],
+    };
+  }).toList();
+
+  final requestBody = jsonEncode({
+    "subjects": subjectsList,
+    "timeSlots": timeSlotsList
+  });
+
+  try {
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $apiKey"
+      },
+      body: requestBody,
+    );
+
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body);
+      setState(() {
+        _schedule = Map<String, String>.from(responseData['schedule']);
+      });
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('schedule', jsonEncode(_schedule));
+
+    } else {
+      throw Exception("Failed to generate schedule: ${response.body}");
     }
-
-    setState(() {});
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('schedule', jsonEncode(_schedule));
+  } catch (error) {
+    print("Error generating schedule: $error");
   }
+}
 
   void _showGeneratedSchedule() {
-    if (_schedule.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("No schedule generated yet!")),
-      );
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Generated Schedule"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: _schedule.entries.map((entry) => Text("${entry.key} - ${entry.value}" )).toList(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("OK"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showTimeSlots() {
-  if (_timeSlots.isEmpty) {
+  if (_schedule.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("No time slots added!")),
+      SnackBar(content: Text("No schedule generated yet!")),
     );
     return;
   }
@@ -136,10 +151,10 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text("Saved Time Slots"),
+      title: Text("Generated Schedule"),
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        children: _timeSlots.map((slot) => Text(slot)).toList(),
+        children: _schedule.entries.map((entry) => Text("${entry.key} - ${entry.value}")).toList(),
       ),
       actions: [
         TextButton(
@@ -151,6 +166,35 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
   );
 }
 
+
+  void _showTimeSlots() {
+    if (_timeSlots.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("No time slots added!")),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Saved Time Slots"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _timeSlots
+              .map((slot) => Text(
+                  '${slot['start']} - ${slot['end']} (${slot['duration']} min)'))
+              .toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +246,8 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
                 itemBuilder: (context, index) {
                   return ListTile(
                     title: Text(_subjects[index]['name']!),
-                    subtitle: Text("Difficulty: ${_subjects[index]['difficulty']}"),
+                    subtitle:
+                        Text("Difficulty: ${_subjects[index]['difficulty']}"),
                     trailing: IconButton(
                       icon: Icon(Icons.delete, color: Colors.red),
                       onPressed: () => _removeSubject(index),
