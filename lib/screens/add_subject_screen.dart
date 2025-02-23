@@ -43,14 +43,22 @@ class _AddSubjectScreenState extends State<AddSubjectScreen> {
   }
 
   Future<void> _loadTimeSlots() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? slotsJson = prefs.getString('timeSlots');
-    if (slotsJson != null) {
-      setState(() {
-        _timeSlots = List<String>.from(jsonDecode(slotsJson));
-      });
-    }
+  final prefs = await SharedPreferences.getInstance();
+  String? slotsJson = prefs.getString('timeSlots');
+
+  if (slotsJson != null) {
+    List<dynamic> decodedList = jsonDecode(slotsJson);
+    
+    setState(() {
+  _timeSlots = decodedList.map<String>((item) {
+    return '${item['start']} - ${item['end']} (${item['duration']} min)';
+  }).toList();
+});
+
   }
+}
+
+
 
   void _addSubject() {
     if (_subjectController.text.isEmpty) return;

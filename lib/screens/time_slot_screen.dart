@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:intl/intl.dart';
+
 
 class TimeSlotScreen extends StatefulWidget {
   @override
@@ -17,22 +19,70 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
   }
 
   Future<void> _saveTimeSlots() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('timeSlots', jsonEncode(_timeSlots));
+  final prefs = await SharedPreferences.getInstance();
+
+  if (_timeSlots.isEmpty) {
+    print("No time slots to save.");
+    return;
   }
+
+  List<Map<String, dynamic>> slotList = _timeSlots.map<Map<String, dynamic>>((slot) {
+    try {
+      // Trim to remove any extra spaces or hidden characters
+      String startTrimmed = slot['start'].toString().trim();
+      String endTrimmed = slot['end'].toString().trim();
+
+      // Parse times using DateFormat.jm() correctly
+      DateTime startTime = DateFormat('h:mm a').parseStrict(startTrimmed);
+      DateTime endTime = DateFormat('h:mm a').parseStrict(endTrimmed);
+
+      int duration = endTime.difference(startTime).inMinutes; // Calculate duration in minutes
+
+      return {
+        'start': startTrimmed,
+        'end': endTrimmed,
+        'duration': duration, // Store duration as an integer
+      };
+    } catch (e) {
+      print("Error parsing time slot: ${slot['start']} - ${slot['end']}, Error: $e");
+      return {}; // Skip invalid slots
+    }
+  }).where((slot) => slot.isNotEmpty).cast<Map<String, dynamic>>().toList(); // Ensure correct type
+
+  if (slotList.isNotEmpty) {
+    String encodedSlots = jsonEncode(slotList);
+    print("Saving time slots: $encodedSlots");
+    await prefs.setString('timeSlots', encodedSlots);
+  } else {
+    print("No valid time slots to save.");
+  }
+}
+
+
 
   Future<void> _loadTimeSlots() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? timeSlotsJson = prefs.getString('timeSlots');
+  final prefs = await SharedPreferences.getInstance();
+  String? slotsJson = prefs.getString('timeSlots');
 
-    if (timeSlotsJson != null) {
-      List<dynamic> decodedList = jsonDecode(timeSlotsJson);
-      setState(() {
-        _timeSlots =
-            decodedList.map((item) => item as Map<String, dynamic>).toList();
-      });
-    }
+  if (slotsJson == null || slotsJson.isEmpty) {
+    print("No time slots found in SharedPreferences.");
+    return;
   }
+
+  List<dynamic> decodedList = jsonDecode(slotsJson);
+  print("Loaded time slots: $decodedList");
+
+  setState(() {
+    _timeSlots = decodedList.map<Map<String, dynamic>>((item) {
+      return {
+        'start': item['start'] as String,
+        'end': item['end'] as String,
+        'duration': (item['duration'] as num?)?.toInt() ?? 0, // Ensure duration is an integer
+      };
+    }).toList();
+  });
+}
+
 
   Future<void> _pickTime(bool isStart, int? index) async {
     TimeOfDay? pickedTime = await showTimePicker(
